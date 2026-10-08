@@ -328,6 +328,21 @@ export class Battle {
     return ok;
   }
 
+  /** Opening-hand mulligan: shuffles the chosen cards back and draws replacements. */
+  mulligan(i: PlayerIdx, handUids: number[]) {
+    const pl = this.p(i);
+    const back = pl.hand.filter((h) => handUids.includes(h.uid));
+    if (!back.length) return;
+    pl.hand = pl.hand.filter((h) => !handUids.includes(h.uid));
+    pl.deck.push(...back.map((h) => h.cardId));
+    this.rng.shuffle(pl.deck);
+    for (let k = 0; k < back.length; k++) {
+      const id = pl.deck.shift()!;
+      pl.hand.push({ uid: this.nextUid(), cardId: id });
+    }
+    this.state.rngState = this.rng.state;
+  }
+
   concede(i: PlayerIdx) {
     if (this.over) return;
     this.state.winner = this.foe(i);

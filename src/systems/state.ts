@@ -41,6 +41,7 @@ export interface PlayerData {
   shop: { dealsDate: string; boughtDeals: string[]; freeGiftDate: string };
   tutorial: { firstBattle: boolean; firstPack: boolean };
   lastDifficulty: Difficulty;
+  tournament: { round: number; results: boolean[]; opponents: { name: string; factions: string[] }[] } | null;
   settings: Settings;
 }
 
@@ -71,6 +72,7 @@ export function defaultData(): PlayerData {
     shop: { dealsDate: '', boughtDeals: [], freeGiftDate: '' },
     tutorial: { firstBattle: false, firstPack: false },
     lastDifficulty: 'NORMAL',
+    tournament: null,
     settings: { music: 0.5, sfx: 0.8, haptics: true, quality: 'HIGH', reducedMotion: false, fastReveal: false, showFps: false },
   };
 }

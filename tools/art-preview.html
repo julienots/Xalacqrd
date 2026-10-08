@@ -1,0 +1,10 @@
+<!doctype html><html><body style="background:#111;margin:0;display:flex;flex-wrap:wrap;gap:6px;padding:6px">
+<script type="module">
+import { CardSystem } from '../src/systems/CardSystem';
+import { cardFace } from '../src/render/cardFace';
+const cs = new CardSystem();
+const pick = cs.collectible.filter((c, i) => i % 37 === 0).slice(0, 20);
+const finishes = ['NORMAL','GOLD','SECRET','SIGNATURE'];
+pick.forEach((c, i) => { const cv = cardFace(c, i < 16 ? 'NORMAL' : finishes[i-16], 300); cv.style.width='240px'; document.body.appendChild(cv); });
+window.__done = true;
+</script></body></html>
