@@ -80,7 +80,7 @@ await step('booster opening (swipe, reveals, summary)', async () => {
   await page.mouse.up();
   await page.waitForTimeout(2000);
   let sawLegendary = false;
-  for (let i = 0; i < 60 && !(await page.locator('.booster-summary').count()); i++) {
+  for (let i = 0; i < 140 && !(await page.locator('.booster-summary').count()); i++) {
     await page.mouse.click(206, 450);
     await page.waitForTimeout(650);
     const rar = await page.evaluate(() => document.querySelector('.rt-rar')?.textContent ?? '');

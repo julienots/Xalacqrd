@@ -18,6 +18,7 @@ export interface BoosterHooks {
   haptic(level: 'light' | 'medium' | 'heavy'): void;
   epic(): void;
   hint(text: string): void;
+  phase(p: 'idle' | 'opening' | 'reveal'): void;
   title(card: PulledCard | null): void;
   flash(color: string): void;
   shake(): void;
@@ -39,6 +40,10 @@ function packCanvas(packId: PackId, setCode: string): HTMLCanvasElement {
   const gr = g.createLinearGradient(0, 0, W, H);
   gr.addColorStop(0, p.colors[0]); gr.addColorStop(0.5, p.colors[1]); gr.addColorStop(1, p.colors[0]);
   g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  // deep vignette so the foil reads rich instead of washed-out
+  const vg = g.createRadialGradient(W / 2, H * 0.45, W * 0.2, W / 2, H * 0.5, W * 0.95);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(5,3,20,0.75)');
+  g.fillStyle = vg; g.fillRect(0, 0, W, H);
   // foil stripes
   g.globalAlpha = 0.12; g.fillStyle = '#fff';
   for (let x = -H; x < W; x += 26) { g.beginPath(); g.moveTo(x, H); g.lineTo(x + H, 0); g.lineTo(x + H + 10, 0); g.lineTo(x + 10, H); g.fill(); }
@@ -48,7 +53,7 @@ function packCanvas(packId: PackId, setCode: string): HTMLCanvasElement {
   for (let i = 0; i < 24; i++) { g.rotate(Math.PI / 12); g.fillStyle = i % 2 ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'; g.beginPath(); g.moveTo(0, 0); g.lineTo(-40, -600); g.lineTo(40, -600); g.fill(); }
   g.restore();
   const rg = g.createRadialGradient(W / 2, H * 0.45, 10, W / 2, H * 0.45, 220);
-  rg.addColorStop(0, 'rgba(255,255,255,0.9)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
+  rg.addColorStop(0, 'rgba(255,255,255,0.45)'); rg.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = rg; g.beginPath(); g.arc(W / 2, H * 0.45, 220, 0, Math.PI * 2); g.fill();
   g.font = '170px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.shadowColor = '#000'; g.shadowBlur = 30; g.fillText(p.glyph, W / 2, H * 0.45);
@@ -127,9 +132,8 @@ export class BoosterScene {
     this.rim.position.set(-2, 1, -2);
     s.add(this.ambient, this.key, this.rim);
     // floor
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(6, 48), new THREE.MeshStandardMaterial({ color: '#06040f', roughness: 0.85, metalness: 0.1, envMapIntensity: 0.05 }));
-    floor.rotation.x = -Math.PI / 2; floor.position.y = -1.6; floor.receiveShadow = true;
-    s.add(floor);
+    // soft spotlight halo behind the pack (no floor: cleaner, centred composition)
+    const halo = makeGlowSprite('#6a4cff', 7, 0.35); halo.position.set(0, 0.1, -3); s.add(halo);
     // god rays + shockwave ring
     this.rays = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), raysMaterial(new THREE.Color('#ffffff')));
     this.rays.position.z = -1.5; s.add(this.rays);
@@ -145,9 +149,9 @@ export class BoosterScene {
   }
 
   private fitCamera() {
-    // keep the card comfortably framed on narrow portrait screens
-    const aspect = this.cam.aspect;
-    this.camDist = aspect < 0.6 ? 6 + (0.6 - aspect) * 6 : 6;
+    // frame the scene so a card fills ~65% of the width on phones and never overflows vertically
+    const k = Math.tan(THREE.MathUtils.degToRad(this.cam.fov / 2)) * 2;
+    this.camDist = Math.max(4.6, 1.15 / (0.65 * k * this.cam.aspect));
   }
 
   private buildPack() {
@@ -164,7 +168,7 @@ export class BoosterScene {
     // remap front UVs to the lower 90% of the texture
     const uv = geo.attributes.uv as THREE.BufferAttribute;
     for (let i = 0; i < uv.count; i++) uv.setY(i, uv.getY(i) * 0.9);
-    const mat = new THREE.MeshStandardMaterial({ map: tex, metalness: 0.55, roughness: 0.32, envMapIntensity: 0.55 });
+    const mat = new THREE.MeshStandardMaterial({ map: tex, metalness: 0.45, roughness: 0.35, envMapIntensity: 0.3 });
     this.packBody = new THREE.Mesh(geo, mat);
     this.packBody.position.y = -H * 0.05;
     this.packBody.castShadow = true;
@@ -185,7 +189,8 @@ export class BoosterScene {
     this.host.start();
     this.fitCamera();
     this.hooks.music('menu');
-    this.hooks.hint('Drag to inspect · Swipe across to tear open');
+    this.hooks.hint('Tap the pack (or swipe across it) to open');
+    this.hooks.phase('idle');
     this.pack.position.set(0, -3, 0);
     this.pack.rotation.y = -Math.PI;
     this.host.tween(1.1, (k) => { this.pack.position.y = lerp(-3, 0, k); this.pack.rotation.y = lerp(-Math.PI * 1.5, 0, k); }, easeOutBack);
@@ -230,22 +235,42 @@ export class BoosterScene {
       }
       if (!this.drag.moved || (this.phase === 'showing' && Math.hypot(this.drag.x - this.drag.sx, this.drag.y - this.drag.sy) < 30)) this.tap();
     };
+    const cancel = () => { this.drag.active = false; this.drag.tear = 0; this.tearLine.scale.x = 0.0001; };
     el.addEventListener('pointerdown', down);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
-    this.unbind = () => { el.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointercancel', cancel);
+    this.unbind = () => { el.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', cancel); };
   }
   private unbind = () => {};
 
   private tap() {
-    if (this.phase === 'ready') this.revealNext();
+    if (this.phase === 'idle') this.open();
+    else if (this.phase === 'ready') this.revealNext();
     else if (this.phase === 'showing') this.dismissShowing();
   }
 
   // ---------------- tear & emerge ----------------
+  /** Opens the pack (tap, button or completed swipe). */
+  async open() {
+    if (this.phase !== 'idle') return;
+    this.phase = 'tearing';
+    this.hooks.phase('opening');
+    this.hooks.hint('');
+    this.hooks.sfx('packShake');
+    // quick anticipation shake + tear line sweep
+    await this.host.tween(0.45, (k) => {
+      this.pack.rotation.z = Math.sin(k * Math.PI * 6) * 0.05 * (1 - k);
+      this.tearLine.scale.x = Math.max(0.0001, k);
+    });
+    this.phase = 'idle';
+    await this.tear();
+  }
+
   private async tear() {
     if (this.phase !== 'idle') return;
     this.phase = 'tearing';
+    this.hooks.phase('opening');
     this.hooks.hint('');
     this.hooks.sfx('packTear');
     this.hooks.haptic('medium');
@@ -268,7 +293,7 @@ export class BoosterScene {
     this.cards = this.result.cards.map((p, i) => {
       const tier = RARITIES[p.rarity].tier;
       const obj = createCardObject(p.card, p.finish as Finish, this.cardBackId, { hiRes: tier >= 2, popOut: tier >= 2 });
-      obj.group.position.set(0, -0.2, -0.02 - i * 0.004);
+      obj.group.position.set(0, 0, -0.02 - i * 0.004);
       obj.group.rotation.y = Math.PI; // face down (back toward camera)
       obj.group.scale.setScalar(0.9);
       obj.group.visible = false;
@@ -279,13 +304,14 @@ export class BoosterScene {
     // cards rise out of the pack
     const rise = this.cards.map((c, i) => {
       c.group.visible = true;
-      return this.host.wait(i * 0.04).then(() => this.host.tween(0.6, (k) => { c.group.position.y = lerp(-0.2, 0.15 + (n - i) * 0.006, k); }, easeOut));
+      return this.host.wait(i * 0.04).then(() => this.host.tween(0.6, (k) => { c.group.position.y = lerp(-0.6, 0.1 + (n - i) * 0.004, k); }, easeOut));
     });
     // pack drops away
     this.host.tween(0.8, (k) => { this.pack.position.y = lerp(0, -4.5, k); this.pack.rotation.x = k * 0.6; }, easeIn).then(() => (this.pack.visible = false));
     await Promise.all(rise);
     this.hooks.hint('Tap to reveal');
     this.phase = 'ready';
+    this.hooks.phase('reveal');
     this.prepareTop();
   }
 
@@ -320,7 +346,8 @@ export class BoosterScene {
     const g = c.group;
     this.hooks.sfx('cardFlip');
     const z0 = g.position.z;
-    await this.host.tween(0.28, (k) => { g.rotation.y = lerp(Math.PI, 0, k); g.position.z = z0 + Math.sin(k * Math.PI) * 0.4; g.scale.setScalar(lerp(0.9, 1.05, k)); }, easeOut);
+    const y0 = g.position.y;
+    await this.host.tween(0.28, (k) => { g.rotation.y = lerp(Math.PI, 0, k); g.position.y = lerp(y0, 0.22, k); g.position.z = z0 + Math.sin(k * Math.PI) * 0.4; g.scale.setScalar(lerp(0.9, 1.05, k)); }, easeOut);
     this.hooks.sfx('reveal', RARITIES[p.rarity].tier);
     if (p.isNew) this.particles.emit({ count: 20, pos: g.position.clone(), spread: 0.4, speed: [0.3, 1], colors: ['#ffffff', '#8affb0'], size: [0.03, 0.07] });
     this.hooks.title(p);
@@ -343,13 +370,13 @@ export class BoosterScene {
     // 1) anticipation: card lifts, camera slows & darkens, light builds behind
     this.hooks.sfx('buildup', ultra ? 2 : tier >= 4 ? 1.3 : 0.7);
     if (tier >= 3) this.host.timeScale = 0.85;
-    const lift = ultra ? 1.4 : 1.0;
+    const lift = ultra ? 0.7 : 0.45;
     const z0 = g.position.z;
     const buildT = (ultra ? 1.8 : tier >= 4 ? 1.2 : 0.6) * slow;
     const shakeAmp = tier >= 4 ? 0.03 : 0.01;
     await this.host.tween(buildT, (k) => {
       g.position.z = lerp(z0, lift, easeOut(k));
-      g.position.y = lerp(0.15, 0.2, k);
+      g.position.y = lerp(0.1, 0.22, k);
       g.position.x = (Math.random() - 0.5) * shakeAmp * k;
       raysMat.uniforms.uAmt.value = k * 0.5;
       this.ambient.intensity = lerp(this.ambient.intensity, tier >= 8 ? 0.0 : 0.15, k * 0.1);
@@ -365,7 +392,7 @@ export class BoosterScene {
     await this.host.tween(flipT, (k) => {
       g.rotation.y = lerp(Math.PI, -Math.PI * 2 * spins, k);
       g.rotation.z = Math.sin(k * Math.PI) * (ultra ? 0.25 : 0.1);
-      g.scale.setScalar(lerp(0.9, ultra ? 1.25 : 1.15, k));
+      g.scale.setScalar(lerp(0.9, ultra ? 1.12 : 1.06, k));
     }, ultra ? easeInOut : easeOut);
     g.rotation.y = 0;
     this.host.timeScale = 1;
@@ -393,7 +420,7 @@ export class BoosterScene {
     const orbit = tier >= 3 ? (ultra ? 0.5 : 0.3) : 0.12;
     await this.host.tween(1.2 * slow, (k) => {
       g.position.x = lerp(g.position.x, 0, k);
-      g.position.y = lerp(g.position.y, 0.05, k);
+      g.position.y = lerp(g.position.y, 0.22, k);
       this.camTheta = Math.sin(k * Math.PI) * orbit;
       this.camPhi = Math.sin(k * Math.PI) * orbit * 0.4;
       raysMat.uniforms.uAmt.value = lerp(tier >= 4 ? 1.4 : 0.8, 0.55, k);
@@ -436,11 +463,20 @@ export class BoosterScene {
     this.pile.push(c);
     this.hooks.sfx('cardSlide');
     const from = g.position.clone(), r0 = g.rotation.clone(), s0 = g.scale.x;
-    const tx = -0.9 + (i % 5) * 0.45, ty = -1.45 - Math.floor(i / 5) * 0.12, tz = -1 + i * 0.01;
+    // tidy row(s) of revealed cards at the bottom of the screen, facing the player
+    const halfH = Math.tan(THREE.MathUtils.degToRad(this.cam.fov / 2)) * this.camDist;
+    const halfW = halfH * this.cam.aspect;
+    const perRow = 5, sc = Math.min(0.26, (halfW * 2 - 0.2) / perRow / 1.08);
+    const col = i % perRow, row = Math.floor(i / perRow);
+    const rowCount = Math.min(perRow, this.cards.length - row * perRow);
+    const tx = (col - (rowCount - 1) / 2) * sc * 1.08;
+    const rows = Math.ceil(this.cards.length / perRow);
+    const ty = 0.1 - halfH + 0.22 + sc * 0.7 + (rows - 1 - row) * sc * 1.5;
+    const tz = 0.02 * i;
     await this.host.tween(0.35, (k) => {
       g.position.set(lerp(from.x, tx, k), lerp(from.y, ty, k), lerp(from.z, tz, k));
-      g.rotation.set(lerp(r0.x, -1.1, k), lerp(r0.y, 0, k), lerp(r0.z, (i % 5 - 2) * 0.08, k));
-      g.scale.setScalar(lerp(s0, 0.45, k));
+      g.rotation.set(lerp(r0.x, 0, k), lerp(r0.y, 0, k), lerp(r0.z, 0, k));
+      g.scale.setScalar(lerp(s0, sc, k));
     }, easeInOut);
   }
 
@@ -469,8 +505,8 @@ export class BoosterScene {
   private update(dt: number, t: number) {
     // camera orbit
     const d = this.camDist;
-    this.cam.position.set(Math.sin(this.camTheta) * d, 0.35 + Math.sin(this.camPhi) * d * 0.3, Math.cos(this.camTheta) * d);
-    this.cam.lookAt(0, 0, 0);
+    this.cam.position.set(Math.sin(this.camTheta) * d, 0.1 + Math.sin(this.camPhi) * d * 0.3, Math.cos(this.camTheta) * d);
+    this.cam.lookAt(0, 0.1, 0);
     // idle pack float + inertia rotation
     if (this.phase === 'idle' || this.phase === 'tearing') {
       if (!this.drag.active) { this.packRot.vx *= 0.92; this.packRot.vy *= 0.92; }

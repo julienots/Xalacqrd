@@ -63,7 +63,8 @@ export function openingScreen(app: App, params: { result: PackResult }): Screen 
   const hint = h('div', { class: 'booster-hint' });
   const title = h('div', { class: 'reveal-title' });
   const skipBtn = h('button', { class: 'btn small ghost', onclick: () => scene ? scene.skip() : showSummary() }, 'Skip ⏭');
-  const uiLayer = h('div', { class: 'booster-ui' }, h('div', { class: 'booster-top' }, h('span', { class: 'chip' }, `${PACKS[result.packId].glyph} ${PACKS[result.packId].name}`), skipBtn), title, hint);
+  const openBtn = h('button', { class: 'btn primary big booster-open', onclick: (e: Event) => { e.stopPropagation(); scene?.open(); } }, '✦ OPEN PACK ✦');
+  const uiLayer = h('div', { class: 'booster-ui' }, h('div', { class: 'booster-top' }, h('span', { class: 'chip' }, `${PACKS[result.packId].glyph} ${PACKS[result.packId].name}`), skipBtn), title, hint, openBtn);
   const el = h('div', { class: 'booster-screen full' }, canvasBox, uiLayer);
   let scene: BoosterScene | null = null;
   let summaryShown = false;
@@ -110,6 +111,7 @@ export function openingScreen(app: App, params: { result: PackResult }): Screen 
     haptic: (l: any) => g.haptics.impact(l),
     epic: () => g.haptics.epic(),
     hint: (t: string) => { hint.textContent = t; },
+    phase: (p: 'idle' | 'opening' | 'reveal') => { openBtn.style.display = p === 'idle' ? '' : 'none'; },
     title: setTitle,
     flash: (c: string) => flashScreen(c),
     shake: () => { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); },

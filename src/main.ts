@@ -1,6 +1,7 @@
 // XALACARDS bootstrap: loading screen, systems, screens.
 
 import './styles.css';
+import './core/polyfills';
 import { Game } from './systems/Game';
 import { App } from './ui/app';
 import { ui, h, toast } from './ui/dom';
@@ -53,4 +54,10 @@ async function boot() {
   if (game.data.settings.showFps) document.body.appendChild(h('div', { class: 'fps', id: 'fps' }, ''));
 }
 
-boot();
+boot().catch((e) => {
+  console.error(e);
+  document.querySelector('.loading')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;color:#fff;background:#07060f;font-family:system-ui">
+    <h2>XALACARDS could not start</h2><p style="opacity:.7">${String(e?.message ?? e).replace(/</g, '&lt;')}</p>
+    <button onclick="location.reload()" style="padding:12px 20px;border-radius:12px;border:0;background:#ffb347;font-weight:800">Retry</button></div>`);
+});

@@ -5,6 +5,7 @@
   "android": {
     "backgroundColor": "#07060f",
     "allowMixedContent": false,
-    "webContentsDebuggingEnabled": false
+    "webContentsDebuggingEnabled": false,
+    "adjustMarginsForEdgeToEdge": "force"
   }
 }
