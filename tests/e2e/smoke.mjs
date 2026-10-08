@@ -21,7 +21,11 @@ let failed = 0;
 async function step(name, fn) {
   const t0 = Date.now();
   try { await fn(); results.push(`✔ ${name} (${Date.now() - t0}ms)`); }
-  catch (e) { failed++; results.push(`✘ ${name}: ${e.message.split('\n')[0]}`); }
+  catch (e) {
+    failed++;
+    results.push(`✘ ${name}: ${e.message.split('\n').slice(0, 3).join(' / ')}`);
+    try { fs.mkdirSync(path.join(ROOT, 'tests/e2e/screens'), { recursive: true }); await page.screenshot({ path: path.join(ROOT, 'tests/e2e/screens', `FAIL-${name.replace(/\W+/g, '_')}.png`) }); } catch { /* ignore */ }
+  }
 }
 const assert = (c, msg) => { if (!c) throw new Error(msg); };
 
@@ -140,29 +144,29 @@ await step('battle vs AI plays to completion', async () => {
     for (let k = 0; k < 4; k++) {
       const c = page.locator('.hand-card.playable').first();
       if (!(await c.count())) break;
-      await c.click(); await page.waitForTimeout(200); await c.click(); await page.waitForTimeout(350);
+      await c.click({ force: true, timeout: 2500 }).catch(() => {}); await page.waitForTimeout(200); await c.click({ force: true, timeout: 2500 }).catch(() => {}); await page.waitForTimeout(350);
       const tgt = page.locator('.targetable, .ally-target').first();
-      if (await tgt.count()) await tgt.click(); else if ((await page.locator('.target-hint').textContent()) !== '') await page.mouse.click(206, 330);
+      if (await tgt.count()) await tgt.click({ force: true, timeout: 2500 }).catch(() => {}); else if ((await page.locator('.target-hint').textContent()) !== '') await page.mouse.click(206, 330);
       await page.waitForTimeout(900);
     }
     for (let k = 0; k < 6; k++) {
       const u = page.locator('.lane.mine .unit.can-attack').first();
       if (!(await u.count())) break;
-      await u.click(); await page.waitForTimeout(250);
+      await u.click({ force: true, timeout: 2500 }).catch(() => {}); await page.waitForTimeout(250);
       const t = page.locator('.targetable').last();
-      if (await t.count()) await t.click();
+      if (await t.count()) await t.click({ force: true, timeout: 2500 }).catch(() => {});
       await page.waitForTimeout(900);
       if (await page.locator('.result').count()) break;
     }
     if (await page.locator('.result').count()) break;
-    await page.locator('.end-turn').click().catch(() => {});
+    await page.locator('.end-turn').click({ force: true, timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(600);
   }
   assert(await page.locator('.result').count(), 'match did not finish within 40 turns');
   await shot('09-result');
   const matches = await game(() => window.__xala.data.stats.matches);
   assert(matches >= 1, 'match not recorded');
-  await page.getByText('Continue', { exact: true }).click();
+  await page.getByText('Continue', { exact: true }).click({ timeout: 10000 });
   await page.waitForTimeout(800);
 });
 

@@ -31,8 +31,8 @@ async function boot() {
 
   ui.sfx = (name, arg) => game.audio.play(name, arg);
   ui.haptic = (l) => game.haptics.impact(l);
-  const unlock = () => { game.audio.unlock(); game.audio.music('menu'); };
-  window.addEventListener('pointerdown', unlock, { once: false, passive: true });
+  // Browsers only allow audio after a user gesture; the current music mode resumes on unlock.
+  window.addEventListener('pointerdown', () => game.audio.unlock(), { passive: true });
 
   const app = new App(game, root);
   registerScreens(app);
@@ -40,7 +40,11 @@ async function boot() {
 
   // persist on background / close
   const flush = () => game.save.flush(game.data).catch(() => {});
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { flush(); game.audio.music('none'); } else { game.dailyRefresh(); game.audio.music('menu'); } });
+  let pausedMode: ReturnType<() => typeof game.audio.mode> = 'menu';
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { flush(); pausedMode = game.audio.mode; game.audio.music('none'); }
+    else { game.dailyRefresh(); game.audio.music(pausedMode === 'none' ? 'menu' : pausedMode); app.renderHud(); }
+  });
   window.addEventListener('pagehide', flush);
 
   await loading.step(1, 'Ready!', async () => {});

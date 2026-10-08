@@ -201,6 +201,8 @@ export class AudioSystem {
   sfx_page() { this.chord([72, 76, 79, 84, 88], 1.4, { spread: 0.08, vol: 0.18, rev: 1 }); this.shimmer(1, 0.08); }
 
   // ---------- generative music ----------
+  get mode(): MusicMode { return this.musicMode; }
+
   music(mode: MusicMode) {
     if (mode === this.musicMode) return;
     this.musicMode = mode;

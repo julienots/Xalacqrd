@@ -52,7 +52,9 @@ export function battleScreen(app: App, spec: MatchSpec): Screen {
   const hint = h('div', { class: 'target-hint' });
   const menuBtn = h('button', { class: 'hud-gear', style: 'position:absolute;top:calc(var(--safe-top) + 6px);right:8px;z-index:20', onclick: () => openMenu() }, '☰');
   const el = h('div', { class: 'battle' },
-    h('div', { class: 'battle-bg', style: `background: radial-gradient(ellipse at 50% 30%, ${board.colors[1]}55, #05040c 70%)` }),
+    h('div', { class: 'battle-bg', style: `background: radial-gradient(ellipse at 50% 30%, ${board.colors[1]}66, #05040c 72%);--glow:${board.colors[1]}55;--ring:${FACTIONS[spec.opponent.factions[0]].color}14;--mote:${FACTIONS[spec.opponent.factions[0]].color2}` },
+      h('div', { class: 'arena-ring' }), h('div', { class: 'arena-ring r2' }), h('div', { class: 'arena-glow' }),
+      h('div', { class: 'arena-motes' }, Array.from({ length: 22 }, () => h('i', { style: `left:${Math.random() * 100}%;--dx:${(Math.random() - 0.5) * 80}px;animation-duration:${7 + Math.random() * 8}s;animation-delay:${-Math.random() * 12}s` })))),
     foeHero, table, myHero, hand, overlayBox, log, hint, menuBtn);
 
   let overlay: CreatureOverlay | null = null;
@@ -413,7 +415,14 @@ export function battleScreen(app: App, spec: MatchSpec): Screen {
             closePreview();
           } else {
             const hc = hand.querySelector(`[data-huid="${ev.uid}"]`) as HTMLElement | null;
-            if (hc) { hc.style.visibility = 'hidden'; }
+            if (hc) {
+              const from = hc.getBoundingClientRect();
+              hc.style.visibility = 'hidden';
+              const lr = myLane.getBoundingClientRect();
+              const to = isUnitCard(c) ? new DOMRect(lr.left + lr.width / 2 - 30, lr.top + 10, 60, 84) : center();
+              ui.sfx('whoosh');
+              await flyCard(ev.cardId, from, to, 360);
+            }
           }
           g.audio.play('cardPlace');
           if (ev.p === ME) renderHero(ME);
@@ -429,7 +438,9 @@ export function battleScreen(app: App, spec: MatchSpec): Screen {
           lane.insertBefore(e, existing[ev.index] ?? null);
           e.classList.remove('spawn'); void e.offsetWidth; e.classList.add('spawn');
           ui.sfx('summon'); ui.haptic('light');
-          fx2d.burstAt(e, [FACTIONS[c.faction].color, FACTIONS[c.faction].color2, '#fff'], 26, 200);
+          const sfx = COSMETIC_BY_ID[ev.p === ME ? g.data.equipped.summon : 'sx_default'] ?? COSMETIC_BY_ID['sx_default'];
+          fx2d.burstAt(e, [FACTIONS[c.faction].color, FACTIONS[c.faction].color2, sfx.colors[0], sfx.colors[1], '#fff'], 34, 220);
+          e.animate([{ boxShadow: `0 0 0 0 ${sfx.colors[1]}` }, { boxShadow: `0 0 0 22px transparent` }], { duration: 600 });
           if (overlay && hasModel(c)) { overlay.spawn(ev.uid, c, e); if (RARITIES[c.rarity].tier >= 3) setTimeout(() => ui.sfx('roar'), 350); }
           if (RARITIES[c.rarity].tier >= 4 || c.type === 'champion') { flashScreen(RARITIES[c.rarity].glow); ui.haptic('medium'); }
           await sleep(ev.token ? 180 : 420);
@@ -544,9 +555,8 @@ export function battleScreen(app: App, spec: MatchSpec): Screen {
     const idx = steps.findIndex(([k]) => k === evName);
     if (idx < 0 || idx !== tutorialStep) return;
     tutorialStep++;
-    const tip = h('div', { class: 'toast', style: 'position:absolute;left:12px;right:12px;top:38%;z-index:95;font-size:14px;line-height:1.4' }, steps[idx][1]);
-    el.appendChild(tip);
-    setTimeout(() => tip.remove(), 5200);
+    const tip = h('div', { class: 'toast', style: 'position:absolute;left:12px;right:12px;top:30%;z-index:95;font-size:14px;line-height:1.4' }, steps[idx][1]);
+    setTimeout(() => { el.appendChild(tip); setTimeout(() => tip.remove(), 5200); }, evName === 'start' ? 1400 : 300);
   }
 
   // ---------------- menu / concede ----------------

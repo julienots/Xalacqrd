@@ -323,12 +323,12 @@ select.input { appearance: none; }
 .table { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; perspective: 1100px; z-index: 1; min-height: 0; }
 .table-surface { position: relative; transform: rotateX(24deg); transform-style: preserve-3d; transform-origin: 50% 55%; padding: 4px 6px; }
 .table-surface::before { content: ''; position: absolute; inset: -30px -16px; border-radius: 30px; background: var(--board, radial-gradient(ellipse at center, #2c2550, #0d0b1a 75%)); box-shadow: inset 0 0 60px rgba(0,0,0,0.8), 0 30px 60px rgba(0,0,0,0.6); border: 2px solid rgba(255,207,107,0.2); transform: translateZ(-2px); }
-.lane { position: relative; display: flex; justify-content: center; gap: 5px; min-height: 122px; padding: 6px 2px; border-radius: 16px; margin: 4px 0; }
+.lane { position: relative; display: flex; justify-content: center; align-items: center; gap: 5px; min-height: 138px; padding: 6px 2px; border-radius: 16px; margin: 4px 0; }
 .lane.mine { background: linear-gradient(0deg, rgba(79,216,255,0.07), transparent); }
 .lane.foe { background: linear-gradient(180deg, rgba(255,83,112,0.07), transparent); }
 .lane.drop-ok { box-shadow: inset 0 0 0 2px rgba(79,216,255,0.6), 0 0 26px rgba(79,216,255,0.35); }
 .mid-line { height: 2px; margin: 2px 20px; background: linear-gradient(90deg, transparent, rgba(255,207,107,0.6), transparent); box-shadow: 0 0 12px rgba(255,207,107,0.5); }
-.unit { position: relative; width: clamp(56px, 15.2vw, 92px); aspect-ratio: 5/6.6; border-radius: 10px; transform-style: preserve-3d; transition: transform .25s, box-shadow .25s; cursor: pointer; }
+.unit { position: relative; width: clamp(56px, 15.4vw, 96px); aspect-ratio: 5/6.8; border-radius: 10px; transform-style: preserve-3d; transition: transform .25s, box-shadow .25s; cursor: pointer; }
 .unit .u-art { position: absolute; inset: 0; border-radius: 10px; overflow: hidden; background-size: cover; background-position: center 28%; box-shadow: 0 8px 14px rgba(0,0,0,0.6), inset 0 0 0 2px var(--rc, #aab2c0); }
 .unit .u-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.7)); }
 .unit .u-atk, .unit .u-hp, .unit .u-def { position: absolute; bottom: -7px; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 13px; border: 2px solid rgba(255,255,255,0.85); text-shadow: 0 1px 2px #000; z-index: 3; transform: translateZ(4px); }
@@ -463,3 +463,19 @@ select.input { appearance: none; }
 
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 .reduced-motion * { animation-duration: .01ms !important; transition-duration: .05ms !important; }
+
+/* ---------------- arena backdrop ---------------- */
+.battle-bg { overflow: hidden; }
+.arena-ring { position: absolute; left: 50%; top: 46%; width: 150vmax; height: 150vmax; transform: translate(-50%, -50%); border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 8%, var(--ring, rgba(255,207,107,0.08)) 10%, transparent 14% 33%, var(--ring, rgba(255,207,107,0.08)) 36%, transparent 40% 60%, var(--ring, rgba(255,207,107,0.08)) 62%, transparent 66%);
+  animation: ringSpin 60s linear infinite; mask-image: radial-gradient(circle, #000 20%, transparent 60%); -webkit-mask-image: radial-gradient(circle, #000 20%, transparent 60%); }
+.arena-ring.r2 { animation-duration: 90s; animation-direction: reverse; opacity: .6; }
+@keyframes ringSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.arena-glow { position: absolute; left: 0; right: 0; top: 30%; height: 40%; background: radial-gradient(ellipse at center, var(--glow, rgba(138,107,255,0.25)), transparent 70%); animation: glowPulse 6s ease-in-out infinite; }
+@keyframes glowPulse { 50% { opacity: .55; } }
+.arena-motes { position: absolute; inset: 0; }
+.arena-motes i { position: absolute; bottom: -10px; width: 3px; height: 3px; border-radius: 50%; background: var(--mote, #ffcf6b); box-shadow: 0 0 8px var(--mote, #ffcf6b); animation: float linear infinite; opacity: .7; }
+.lane::after { content: ''; position: absolute; inset: 8px 10%; border: 1px dashed rgba(255,255,255,0.07); border-radius: 14px; pointer-events: none; }
+.lane.mine::before, .lane.foe::before { content: '◈  ✦  ◈'; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; font-size: 22px; letter-spacing: 1.2em; color: rgba(255,255,255,0.05); pointer-events: none; }
+.table-surface::after { content: ''; position: absolute; inset: -30px -16px; border-radius: 30px; pointer-events: none; transform: translateZ(-1px);
+  background: repeating-linear-gradient(90deg, transparent 0 38px, rgba(255,255,255,0.025) 38px 39px), repeating-linear-gradient(0deg, transparent 0 38px, rgba(255,255,255,0.02) 38px 39px); }
