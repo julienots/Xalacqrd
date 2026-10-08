@@ -1,0 +1,31 @@
+{
+  "name": "xalacards",
+  "private": true,
+  "version": "1.0.0",
+  "description": "XALACARDS — premium 2.5D mobile trading card game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "node tests/e2e/smoke.mjs",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug assembleRelease bundleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "7.4.2",
+    "@capacitor/core": "7.4.2",
+    "@capacitor/haptics": "7.0.1",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.4.2",
+    "@types/three": "0.170.0",
+    "playwright-core": "1.52.0",
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "vitest": "3.2.4"
+  }
+}

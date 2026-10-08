@@ -1,0 +1,10 @@
+{
+  "appId": "com.xalacards.game",
+  "appName": "XALACARDS",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#07060f",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  }
+}
